@@ -36,6 +36,7 @@ echo "source /opt/ros/jazzy/setup.bash" >>~/.bashrc
 echo 'source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash' >>~/.bashrc
 echo 'source /usr/share/colcon_cd/function/colcon_cd.sh' >>~/.bashrc
 echo "export _colcon_cd_root=/opt/ros/jazzy/" >>~/.bashrc
+echo "export ROS_LOCALHOST_ONLY=1" >>~/.bashrc
 
 check_status "ROS2 environment configuration"
 
