@@ -40,6 +40,7 @@ echo "export _colcon_cd_root=/opt/ros/humble/" >>~/.bashrc
 echo 'export TURTLEBOT3_MODEL=burger' >>~/.bashrc
 echo "export GAZEBO_MODEL_PATH=\$GAZEBO_MODEL_PATH:/opt/ros/humble/share/turtlebot3_gazebo/models" >>~/.bashrc
 echo "source /usr/share/gazebo/setup.bash" >>~/.bashrc
+echo "export ROS_LOCALHOST_ONLY=1" >>~/.bashrc
 
 check_status "ROS2 environment configuration"
 
