@@ -1,17 +1,29 @@
 ---
-- name: ROS2 Ubuntu 24.04 Development Environment Setup
+- name: ROS2 Development Environment Setup
   hosts: localhost
   connection: local
   gather_facts: yes
   become: false
   vars:
-    ubuntu_version: "24.04"
-    ros2_distro: jazzy
+    # ROS2 version (can be overridden with -e ros_distro=humble)
+    ros2_distro: "{{ ros_distro | default('jazzy') }}"
+
+    # Auto-detect Ubuntu version based on ROS2 distro
+    ros_ubuntu_mapping:
+      humble: "22.04"
+      jazzy: "24.04"
+
+    # Set Ubuntu version based on ROS2 distro
+    ubuntu_version: "{{ ros_ubuntu_mapping[ros2_distro] }}"
 
   pre_tasks:
+    - name: Display installation target
+      debug:
+        msg: "Installing ROS2 {{ ros2_distro }} for Ubuntu {{ ubuntu_version }}"
+
     - name: Verify Ubuntu version
       fail:
-        msg: "This playbook requires Ubuntu {{ ubuntu_version }}, but you have {{ ansible_distribution_version }}"
+        msg: "This ROS2 {{ ros2_distro }} requires Ubuntu {{ ubuntu_version }}, but you have {{ ansible_distribution_version }}"
       when:
         - ansible_distribution == "Ubuntu"
         - ansible_distribution_version != ubuntu_version
@@ -26,7 +38,7 @@
     - name: Install dependencies
       import_tasks: tasks/dependencies.yml
 
-    - name: Install ROS2 Jazzy
+    - name: Install ROS2
       import_tasks: tasks/ros2.yml
 
     - name: Install extras
@@ -43,6 +55,6 @@
       debug:
         msg:
           - "Installation complete!"
-          - "ROS2 is ready to use"
+          - "ROS2 {{ ros2_distro }} is ready to use"
           - "Run: source ~/.bashrc (or open new terminal)"
           - "Docker group requires logout/login"

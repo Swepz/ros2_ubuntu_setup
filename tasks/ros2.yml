@@ -38,7 +38,7 @@
     state: present
     filename: ros2
 
-- name: Install ROS2 Jazzy Desktop
+- name: Install ROS2 Desktop
   become: true
   apt:
     name: "ros-{{ ros2_distro }}-desktop"
@@ -71,6 +71,7 @@
   changed_when: false
   when: not ansible_check_mode
 
+# Common Navigation2 packages for both versions
 - name: Install Navigation2 packages
   become: true
   apt:
@@ -80,19 +81,35 @@
     state: present
   when: not ansible_check_mode
 
-- name: Install Navigation2 TB packages
+# Humble-specific packages
+- name: Install TurtleBot3 packages (Humble)
+  become: true
+  apt:
+    name: "ros-{{ ros2_distro }}-turtlebot3-gazebo"
+    state: present
+  when:
+    - ros2_distro == "humble"
+    - not ansible_check_mode
+
+# Jazzy-specific packages
+- name: Install Navigation2 TB packages (Jazzy)
   become: true
   shell: apt-get install -y ros-{{ ros2_distro }}-nav2-minimal-tb*
-  when: not ansible_check_mode
+  when:
+    - ros2_distro == "jazzy"
+    - not ansible_check_mode
 
-- name: Install Navigation2 loopback sim
+- name: Install Navigation2 loopback sim (Jazzy)
   become: true
   apt:
     name: "ros-{{ ros2_distro }}-nav2-loopback-sim"
     state: present
-  when: not ansible_check_mode
+  when:
+    - ros2_distro == "jazzy"
+    - not ansible_check_mode
 
-- name: Configure ROS2 environment in bashrc
+# Configure environment based on ROS2 version
+- name: Configure ROS2 environment in bashrc (Humble)
   blockinfile:
     path: "{{ ansible_env.HOME }}/.bashrc"
     block: |
@@ -102,9 +119,25 @@
       source /usr/share/colcon_cd/function/colcon_cd.sh
       export _colcon_cd_root=/opt/ros/{{ ros2_distro }}/
       export ROS_LOCALHOST_ONLY=1
+      export TURTLEBOT3_MODEL=burger
+      export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:/opt/ros/{{ ros2_distro }}/share/turtlebot3_gazebo/models
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - ROS2"
+    create: yes
+  when: ros2_distro == "humble"
+
+- name: Configure ROS2 environment in bashrc (Jazzy)
+  blockinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    block: |
+
+      source /opt/ros/{{ ros2_distro }}/setup.bash
+      source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash
+      source /usr/share/colcon_cd/function/colcon_cd.sh
+      export _colcon_cd_root=/opt/ros/{{ ros2_distro }}/
       export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
     marker: "# {mark} ANSIBLE MANAGED BLOCK - ROS2"
     create: yes
+  when: ros2_distro == "jazzy"
 
 - name: Check if ROS2 is available
   stat:
