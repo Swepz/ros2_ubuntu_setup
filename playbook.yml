@@ -1,0 +1,48 @@
+---
+- name: ROS2 Ubuntu 24.04 Development Environment Setup
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  become: false
+  vars:
+    ubuntu_version: "24.04"
+    ros2_distro: jazzy
+
+  pre_tasks:
+    - name: Verify Ubuntu version
+      fail:
+        msg: "This playbook requires Ubuntu {{ ubuntu_version }}, but you have {{ ansible_distribution_version }}"
+      when:
+        - ansible_distribution == "Ubuntu"
+        - ansible_distribution_version != ubuntu_version
+
+    - name: Update apt cache
+      become: true
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+  tasks:
+    - name: Install dependencies
+      import_tasks: tasks/dependencies.yml
+
+    - name: Install ROS2 Jazzy
+      import_tasks: tasks/ros2.yml
+
+    - name: Install extras
+      import_tasks: tasks/extras.yml
+
+    - name: Install Docker
+      import_tasks: tasks/docker.yml
+
+    - name: Install Visual Studio Code
+      import_tasks: tasks/vscode.yml
+
+  post_tasks:
+    - name: Display completion message
+      debug:
+        msg:
+          - "Installation complete!"
+          - "ROS2 is ready to use"
+          - "Run: source ~/.bashrc (or open new terminal)"
+          - "Docker group requires logout/login"

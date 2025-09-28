@@ -1,0 +1,26 @@
+---
+- name: Install essential system packages
+  become: true
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - gpg
+      - lsb-release
+      - software-properties-common
+      - apt-transport-https
+      - ca-certificates
+      - build-essential
+      - xclip
+      - tmux
+      - neovim
+      - python-is-python3
+      - python3-pip
+      - python3-venv
+      - python3-neovim
+      - pylint
+      - python3-yapf
+      - isort
+      - black
+    state: present

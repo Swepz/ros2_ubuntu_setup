@@ -1,0 +1,55 @@
+---
+- name: Install Oh-My-Bash
+  shell: |
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)" --unattended
+  args:
+    creates: "{{ ansible_env.HOME }}/.oh-my-bash"
+
+- name: Configure tmux
+  block:
+    - name: Clone tmux configuration
+      git:
+        repo: https://github.com/gpakosz/.tmux.git
+        dest: "{{ ansible_env.HOME }}/.tmux"
+        single_branch: yes
+
+    - name: Create tmux.conf symlink
+      file:
+        src: "{{ ansible_env.HOME }}/.tmux/.tmux.conf"
+        dest: "{{ ansible_env.HOME }}/.tmux.conf"
+        state: link
+
+    - name: Copy tmux.conf.local
+      copy:
+        src: "{{ ansible_env.HOME }}/.tmux/.tmux.conf.local"
+        dest: "{{ ansible_env.HOME }}/.tmux.conf.local"
+        remote_src: yes
+  when: not ansible_check_mode
+
+- name: Install GitHub CLI
+  become: true
+  block:
+    - name: Add GitHub CLI GPG key
+      shell: |
+        wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+      args:
+        creates: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+
+    - name: Add GitHub CLI repository
+      apt_repository:
+        repo: "deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') }} signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+        state: present
+        filename: github-cli
+
+    - name: Install GitHub CLI
+      apt:
+        name: gh
+        state: present
+        update_cache: yes
+      when: not ansible_check_mode
+
+- name: Configure shell aliases
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: "alias vim=nvim"
+    state: present

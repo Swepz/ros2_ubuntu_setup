@@ -1,0 +1,127 @@
+---
+- name: Verify architecture support
+  fail:
+    msg: "ROS2 requires 64-bit architecture"
+  when: ansible_architecture not in ['x86_64', 'aarch64']
+
+- name: Add universe repository
+  become: true
+  apt_repository:
+    repo: "{{ item }}"
+    state: present
+  loop:
+    - "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} universe"
+    - "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }}-updates universe"
+
+- name: Install ROS2 dependencies
+  become: true
+  apt:
+    name:
+      - curl
+      - gnupg2
+      - lsb-release
+      - build-essential
+      - software-properties-common
+    state: present
+
+- name: Add ROS2 GPG key
+  become: true
+  get_url:
+    url: https://raw.githubusercontent.com/ros/rosdistro/master/ros.key
+    dest: /usr/share/keyrings/ros-archive-keyring.gpg
+    mode: '0644'
+
+- name: Add ROS2 repository
+  become: true
+  apt_repository:
+    repo: "deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') }} signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu {{ ansible_distribution_release }} main"
+    state: present
+    filename: ros2
+
+- name: Install ROS2 Jazzy Desktop
+  become: true
+  apt:
+    name: "ros-{{ ros2_distro }}-desktop"
+    state: present
+    update_cache: yes
+  when: not ansible_check_mode
+
+- name: Install ROS2 development tools
+  become: true
+  apt:
+    name:
+      - python3-argcomplete
+      - python3-colcon-clean
+      - python3-colcon-common-extensions
+      - python3-rosdep
+      - python3-vcstool
+    state: present
+  when: not ansible_check_mode
+
+- name: Initialize rosdep
+  become: true
+  command: rosdep init
+  args:
+    creates: /etc/ros/rosdep/sources.list.d/20-default.list
+  when: not ansible_check_mode
+
+- name: Update rosdep
+  command: rosdep update
+  become: false
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Install Navigation2 packages
+  become: true
+  apt:
+    name:
+      - "ros-{{ ros2_distro }}-navigation2"
+      - "ros-{{ ros2_distro }}-nav2-bringup"
+    state: present
+  when: not ansible_check_mode
+
+- name: Install Navigation2 TB packages
+  become: true
+  shell: apt-get install -y ros-{{ ros2_distro }}-nav2-minimal-tb*
+  when: not ansible_check_mode
+
+- name: Install Navigation2 loopback sim
+  become: true
+  apt:
+    name: "ros-{{ ros2_distro }}-nav2-loopback-sim"
+    state: present
+  when: not ansible_check_mode
+
+- name: Configure ROS2 environment in bashrc
+  blockinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    block: |
+
+      source /opt/ros/{{ ros2_distro }}/setup.bash
+      source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash
+      source /usr/share/colcon_cd/function/colcon_cd.sh
+      export _colcon_cd_root=/opt/ros/{{ ros2_distro }}/
+      export ROS_LOCALHOST_ONLY=1
+      export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - ROS2"
+    create: yes
+
+- name: Check if ROS2 is available
+  stat:
+    path: "/opt/ros/{{ ros2_distro }}/setup.bash"
+  register: ros2_installed
+
+- name: Verify ROS2 installation
+  shell: |
+    source {{ ansible_env.HOME }}/.bashrc
+    which ros2 && echo "ROS2 {{ ros2_distro }} installed successfully"
+  args:
+    executable: /bin/bash
+  register: ros2_check
+  changed_when: false
+  when: ros2_installed.stat.exists
+  ignore_errors: yes
+
+- name: Display ROS2 status
+  debug:
+    msg: "{{ ros2_check.stdout | default('ROS2 installation complete - restart terminal to use') }}"
