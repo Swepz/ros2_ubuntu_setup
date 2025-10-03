@@ -1,4 +1,16 @@
 ---
+- name: Check for existing Microsoft keyring
+  stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/share/keyrings/microsoft.gpg
+    - /usr/share/keyrings/packages.microsoft.gpg
+  register: keyring_check
+
+- name: Set Microsoft keyring path
+  set_fact:
+    microsoft_keyring: "{{ keyring_check.results | selectattr('stat.exists') | map(attribute='item') | first | default('/usr/share/keyrings/packages.microsoft.gpg') }}"
+
 - name: Add Microsoft GPG key
   become: true
   block:
@@ -9,20 +21,20 @@
 
     - name: Convert GPG key
       shell: |
-        cat /tmp/microsoft.asc | gpg --dearmor > /usr/share/keyrings/packages.microsoft.gpg
+        cat /tmp/microsoft.asc | gpg --dearmor > {{ microsoft_keyring }}
       args:
-        creates: /usr/share/keyrings/packages.microsoft.gpg
+        creates: "{{ microsoft_keyring }}"
 
     - name: Set permissions on Microsoft keyring
       file:
-        path: /usr/share/keyrings/packages.microsoft.gpg
+        path: "{{ microsoft_keyring }}"
         mode: '0644'
       when: not ansible_check_mode
 
 - name: Add VSCode repository
   become: true
   apt_repository:
-    repo: "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+    repo: "deb [arch=amd64,arm64,armhf signed-by={{ microsoft_keyring }}] https://packages.microsoft.com/repos/code stable main"
     state: present
     filename: vscode
 
@@ -38,7 +50,6 @@
   shell: code --install-extension {{ item }}
   when: not ansible_check_mode
   loop:
-    - danielroedl.meld-diff
     - ms-azuretools.vscode-docker
     - ms-iot.vscode-ros
     - ms-python.debugpy
@@ -47,7 +58,6 @@
     - ms-vscode.cmake-tools
     - ms-vscode.cpptools
     - ms-vscode.cpptools-extension-pack
-    - ms-vscode.cpptools-themes
     - ms-vscode-remote.remote-containers
     - oderwat.indent-rainbow
     - robbowen.synthwave-vscode
@@ -56,6 +66,7 @@
   changed_when: "'was successfully installed' in extension_result.stdout"
   failed_when:
     - extension_result.rc != 0
+    - "'already installed' not in extension_result.stdout"
     - "'already installed' not in extension_result.stderr"
 
 - name: Configure VSCode settings
